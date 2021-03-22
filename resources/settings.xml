@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+	<category label="hejo.tv">
+		<setting type="lsep" label="Logowanie" />
+		<setting id="username"  type="text" label="Login" default="" />
+		<setting id="password"  type="text" label="Hasło" option="hidden"  default="" />
+		<setting id="logowanie" type="bool" label="Logowanie w serwisie" default="false" enable=/>
+		<setting type="sep" />
+        <setting type="lsep" label="Wybór jakości" />
+		<setting id="tvqual" label="Wybór jakości TV" type="select" values="auto|1280x720|854x480|640x360" default="auto" sort="yes" />
+	</category>	 
+	
+</settings>
