@@ -1,4 +1,3 @@
-from resources.lib import jsunpack
 import sys
 import re
 import os
@@ -14,29 +13,25 @@ import xbmc
 from urllib.parse import parse_qsl, quote, urlencode
 import http.cookiejar as cookielib
 
-PY3 = sys.version_info >= (3, 0, 0)
+from resources.lib import jsunpack
+from resources.lib.cmf3 import parseDOM
+from resources.lib.cmf3 import replaceHTMLCodes
 
+PY3 = sys.version_info >= (3, 0, 0)
 base_url = sys.argv[0]
 addon_handle = int(sys.argv[1])
 params = dict(parse_qsl(sys.argv[2][1:]))
 
-xbmcplugin.addSortMethod(handle=addon_handle, sortMethod=xbmcplugin.SORT_METHOD_UNSORTED)
-xbmcplugin.addSortMethod(handle=addon_handle, sortMethod=xbmcplugin.SORT_METHOD_DATE)
-xbmcplugin.addSortMethod(handle=addon_handle, sortMethod=xbmcplugin.SORT_METHOD_TITLE)
-xbmcplugin.addSortMethod(handle=addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-xbmcplugin.addSortMethod(handle=addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LASTPLAYED)
-
 addon = xbmcaddon.Addon(id='plugin.video.hejotv')
 BASEURL = 'https://hejo.tv/home'
-PATH = addon.getAddonInfo('path')
-DATAPATH = xbmcvfs.translatePath(addon.getAddonInfo('profile'))
-xbmc.log("Plugin directory = {}".format(DATAPATH), level=xbmc.LOGINFO)
-COOKIEFILE = os.path.join(DATAPATH, 'hejotv.cookie')
+PLUGIN_PATH = addon.getAddonInfo('path')
+PROFILE_PATH = xbmcvfs.translatePath(addon.getAddonInfo('profile'))
+xbmc.log("Plugin directory = {}".format(PROFILE_PATH), level=xbmc.LOGINFO)
+COOKIE_FILE = os.path.join(PROFILE_PATH, 'hejotv.cookie')
 BASEURL2 = 'https://hejo.tv'
-RESOURCES = PATH + '/resources/'
-FANART = PATH + 'fanart.jpg'
+FANART = PLUGIN_PATH + 'fanart.jpg'
 
-CONFIG_FILE_PATH = os.path.join(PATH, 'resources', 'data', 'config.json')
+CONFIG_FILE_PATH = os.path.join(PLUGIN_PATH, 'resources', 'data', 'config.json')
 xbmc.log("Reading config....", level=xbmc.LOGINFO)
 with open(CONFIG_FILE_PATH) as f:
     CONFIG = json.load(f)
@@ -44,16 +39,6 @@ with open(CONFIG_FILE_PATH) as f:
 kukz = ''
 kukz2 = ''
 packer = re.compile('(eval\(function\(p,a,c,k,e,(?:r|d).*)')
-
-if PY3:
-    # for Python 3
-    from resources.lib.cmf3 import parseDOM
-    from resources.lib.cmf3 import replaceHTMLCodes
-
-else:
-    # for Python 2
-    from resources.lib.cmf2 import parseDOM
-    from resources.lib.cmf2 import replaceHTMLCodes
 
 exlink = params.get('url', None)
 name = params.get('title', None)
@@ -63,18 +48,11 @@ try:
 except:
     opisb = params.get('opisb', None)
 page = params.get('page', [1])[0]
+
 sess = requests.Session()
-sess.cookies = cookielib.LWPCookieJar(COOKIEFILE)
-UA = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0'
+sess.cookies = cookielib.LWPCookieJar(COOKIE_FILE)
+USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0'
 jakosc = addon.getSetting('tvqual')
-headersok = {
-    'User-Agent': UA,
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
-    'Referer': 'https://hejo.tv/home',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Cache-Control': 'max-age=0', }
 
 
 def build_url(query):
@@ -121,10 +99,10 @@ def add_item(url, name, image, folder, mode, infoLabels=False, isplay=True, item
 
 def home():
     login()
-    add_item('https://hejo.tv/filmy-online?sort=date_desc', 'Filmy', '', True, "listmovies")
-    add_item('https://hejo.tv/series/index?sort=date_desc', 'Seriale', '', True, "listserials")
-    add_item('https://hejo.tv/', 'Telewizja', '', True, "listtv")
-    add_item('', '[COLOR lightblue]Szukaj filmu lub serialu[/COLOR]', '', True, "search")
+    # add_item('https://hejo.tv/filmy-online?sort=date_desc', 'Filmy', '', True, "listmovies")
+    # add_item('https://hejo.tv/series/index?sort=date_desc', 'Seriale', '', True, "listserials")
+    # add_item('https://hejo.tv/', 'Telewizja', '', True, "listtv")
+    # add_item('', '[COLOR lightblue]Szukaj filmu lub serialu[/COLOR]', '', True, "search")
     xbmcplugin.setContent(addon_handle, 'videos')
     xbmcplugin.endOfDirectory(addon_handle, True)
 
@@ -138,15 +116,13 @@ def cookieString(COOKIEFILE):
 
 
 def getUrl(url, redir=True):
-    sess.headers.update({'User-Agent': UA})
-    if os.path.isfile(COOKIEFILE):
-        sess.cookies.load(COOKIEFILE, ignore_discard=True)
+    sess.headers.update({'User-Agent': USER_AGENT})
+    if os.path.isfile(COOKIE_FILE):
+        sess.cookies.load(COOKIE_FILE, ignore_discard=True)
     if redir:
-        html = sess.get(url, cookies=sess.cookies,
-                        verify=False, allow_redirects=redir).text
+        html = sess.get(url, cookies=sess.cookies, verify=False, allow_redirects=redir).text
     else:
-        html = sess.get(url, cookies=sess.cookies,
-                        verify=False, allow_redirects=redir)
+        html = sess.get(url, cookies=sess.cookies, verify=False, allow_redirects=redir)
     if 'function setCookie' in html:
         try:
             kk = dodajKuki(html)
@@ -174,7 +150,7 @@ def dodajKuki(html):
         kukz = kukz[0]
         nowy_cookie = requests.cookies.create_cookie(kukz[0], kukz[1])
         sess.cookies.set_cookie(nowy_cookie)
-        sess.cookies.save(COOKIEFILE, ignore_discard=True)
+        sess.cookies.save(COOKIE_FILE, ignore_discard=True)
         return True
     else:
         return False
@@ -189,17 +165,15 @@ def zalogujponownie(exlink):
     if username and password and logowanie == 'true':
         headers = {
             'Host': 'hejo.tv',
-            'User-Agent': UA,
+            'User-Agent': USER_AGENT,
             'Accept': 'text/html',
             'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
             'DNT': '1',
             'Upgrade-Insecure-Requests': '1',
         }
 
-        response = sess.get('http://hejo.tv/',
-                            headers=headers, verify=False).content
-        if PY3:
-            response = response.decode(encoding='utf-8', errors='strict')
+        response = sess.get('http://hejo.tv/', headers=headers, verify=False).content
+        response = response.decode(encoding='utf-8', errors='strict')
         packer2 = re.compile('(eval\(function\(p,a,c,k,e,d\).+?{}\)\))')
         unpacked = ''
         packeds = packer2.findall(response)  # [0]
@@ -238,7 +212,7 @@ def zalogujponownie(exlink):
         if PY3:
             html = html.decode(encoding='utf-8', errors='strict')
         if html.find('logowany jako') > 0:
-            sess.cookies.save(COOKIEFILE, ignore_discard=True)
+            sess.cookies.save(COOKIE_FILE, ignore_discard=True)
     return
 
 
@@ -250,65 +224,36 @@ def login():
     if username and password and logowanie == 'true':
         headers = {
             'Host': 'hejo.tv',
-            'User-Agent': UA,
-            # 'Accept': 'text/html',
-            # 'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
-            # 'DNT': '1',
-            # 'Upgrade-Insecure-Requests': '1',
+            'User-Agent': USER_AGENT,
         }
 
-        response = sess.get('http://hejo.tv/', verify=False).content.decode(encoding='utf-8', errors='strict')
-        unpacked = unpackJavascript(response)
-        xbmc.log("Unpacked = {}".format(unpacked), level=xbmc.LOGINFO)
+        response = sess.get(BASEURL2).content.decode(encoding='utf-8', errors='strict')
+        xbmc.log("Response = {}".format(response), level=xbmc.LOGDEBUG)
         try:
-            kukz = re.findall(
-                """setCookie\(['"](.+?)['"],['"](.+?)['"]""", unpacked)[0]
-            nowy_cookie = requests.cookies.create_cookie(kukz[0], kukz[1])
-            sess.cookies.set_cookie(nowy_cookie)
-            response = sess.get('http://hejo.tv/',
-                                headers=headers, verify=False).content
-            if PY3:
-                response = response.decode(encoding='utf-8', errors='strict')
+            set_session_cookies(response)
+            response = sess.get(BASEURL2, headers=headers).content.decode(encoding='utf-8', errors='strict')
         except:
             pass
-        token = parseDOM(response, 'meta', attrs={
-            'name': 'csrf-token'}, ret='content')[0]
-        headers2 = {
+        token = parseDOM(response, 'meta', attrs={'name': 'csrf-token'}, ret='content')[0]
+        headers = {
             'Host': 'hejo.tv',
-            'user-agent': UA,
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'accept-language': 'pl,en-US;q=0.7,en;q=0.3',
+            'user-agent': USER_AGENT,
             'content-type': 'application/x-www-form-urlencoded',
-            'origin': 'https://hejo.tv',
-            'referer': 'https://hejo.tv/',
-            'upgrade-insecure-requests': '1',
-            'te': 'trailers', }
+        }
 
-        # data = {'_token': token,'username': username,'password': password}
-        data = '_token={}&username={}&password={}'.format(
-            token, username, quote(password))
+        data = '_token={}&username={}&password={}'.format(token, username, quote(password))
 
-        response = sess.post('https://hejo.tv/login', data=data, headers=headers2, verify=False).content.decode(
+        response = sess.post('https://hejo.tv/clogin', data=data, headers=headers, verify=False).content.decode(
             encoding='utf-8', errors='strict')
-        packer2 = re.compile('(eval\(function\(p,a,c,k,e,d\).+?{}\)\))')
-        unpacked = ''
-        packeds = packer2.findall(response)  # [0]
 
-        for packed in packeds:
-            unpacked += jsunpack.unpack(packed)
-        unpacked = unpacked.replace("\\'", '"')
-        kukz = re.findall(
-            """setCookie\(['"](.+?)['"],['"](.+?)['"]""", unpacked)  # [0]
-        if kukz:
-            kukz = kukz[0]
-            nowy_cookie = requests.cookies.create_cookie(kukz[0], kukz[1])
-            sess.cookies.set_cookie(nowy_cookie)
-        html = sess.get('https://hejo.tv/login', headers=headers,
-                        cookies=sess.cookies, verify=False).content
-        if PY3:
-            html = html.decode(encoding='utf-8', errors='strict')
+        set_session_cookies(response)
+
+        html = sess \
+            .get('https://hejo.tv/login', headers=headers, cookies=sess.cookies) \
+            .content \
+            .decode(encoding='utf-8', errors='strict')
         if html.find('> Wyloguj się<') > 0:
-            sess.cookies.save(COOKIEFILE, ignore_discard=True)
+            sess.cookies.save(COOKIE_FILE, ignore_discard=True)
             if 'Wykup konto premium' in html:
                 typ = ' [COLOR red](darmowe)[/COLOR]'
             else:
@@ -329,14 +274,14 @@ def login():
                  image='', folder=False, isplay=False)
 
 
-def unpackJavascript(html):
-    packer2 = re.compile('(eval\(function\(p,a,c,k,e,d\).+?{}\)\))')
-    unpacked = ''
-    packeds = packer2.findall(html)
-    for packed in packeds:
-        unpacked += jsunpack.unpack(packed)
-
-    return unpacked.replace("\\'", '"')
+def set_session_cookies(html):
+    regexp = re.compile('(eval\(function\(p,a,c,k,e,d\).+?{}\)\))')
+    found = regexp.findall(html)
+    unpacked = ''.join(list(map(lambda item: jsunpack.unpack(item), found)))
+    cookie_string = re.findall("""setCookie\(['"](.+?)['"],['"](.+?)['"]""", unpacked.replace("\\'", '"'))
+    if cookie_string:
+        nowy_cookie = requests.cookies.create_cookie(cookie_string[0][0], cookie_string[0][1])
+        sess.cookies.set_cookie(nowy_cookie)
 
 
 def ListSport(exlink):
@@ -462,7 +407,7 @@ def ListTv(exlink):
 def getSport(url):
     out = []
     try:
-        kuk = cookieString(COOKIEFILE)
+        kuk = cookieString(COOKIE_FILE)
         html = getUrl(url)
         result = parseDOM(html, 'table', attrs={
             'class': "table table-striped.+?"})[0]
@@ -483,7 +428,8 @@ def getSport(url):
             out.append({'title': '[B][COLOR yellowgreen]' + czas + ' - [/B][/COLOR] ' + tytul, 'href': href,
                         'plot': '[B][COLOR yellowgreen]' +
                                 czas + ' - [/B][/COLOR] ' + tytul,
-                        'img': imag + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)})
+                        'img': imag + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(
+                            kuk)})
             counter += 1
     except:
         pass
@@ -492,22 +438,19 @@ def getSport(url):
 
 def getTV(url):
     out = []
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     html = ''
 
     html += getUrl(url)
-    # for x in range(1, 6):
-    #    urlk='https://hejo.tv/home?page=%s'%x
-    #    html += getUrl(urlk)
     content = getHtml()
-    links = parseDOM(html, 'div', attrs={
-        'class': "col-lg-3 col-md-4 col-sm-6 col-12 p-2"})
+    links = parseDOM(html, 'div', attrs={'class': "col-lg-3 col-md-4 col-sm-6 col-12 p-2"})
 
     for link in links:
 
         href = parseDOM(link, 'a', ret='href')[0]
         imag = parseDOM(link, 'img', ret='src')[0]
         imag = 'https://hejo.tv' + imag if imag.startswith('/upload') else imag
+
         title = parseDOM(link, 'img', ret='alt')[0]
 
         if title:
@@ -520,13 +463,13 @@ def getTV(url):
         title = PLchar(title)
         online = PLchar(online)
         out.append({'title': title + '[B][COLOR yellowgreen] (' + online + ')[/B][/COLOR]', 'href': href,
-                    'img': imag + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                    'img': imag + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
                     'plot': plot})
     return out
 
 
 def getTVcat(url):
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     html = getUrl(url)
     content = getHtml()
@@ -548,7 +491,8 @@ def getTVcat(url):
             title = PLchar(title)
             online = PLchar(online)
             out.append({'title': title + '[B][COLOR yellowgreen] (' + online + ')[/B][/COLOR]', 'href': href,
-                        'img': img + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                        'img': img + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(
+                            kuk),
                         'plot': plot})
             c += 1
     return out
@@ -561,7 +505,7 @@ def getMovies(url, page=1):
         url = url + '&page=%d' % page
     html = getUrl(url)
 
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     serout = []
 
@@ -601,7 +545,7 @@ def getMovies(url, page=1):
         out.append(
             {'title': PLchar(title) + '[B][COLOR yellowgreen] (' + PLchar(lang) + ')[/B][/COLOR]', 'href': PLchar(href),
              'img': 'https://hejo.tv' + PLchar(
-                 imag) + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                 imag) + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
              'ilab': {'plot': PLchar(plot), 'genre': PLchar(genres), 'year': year, 'lang': lang}})
     prevpage = page - 1 if page > 1 else False
     return (out, (prevpage, nextpage))
@@ -614,7 +558,7 @@ def getSerials(url, page):
         url = url + '&page=%d' % page
 
     html = getUrl(url)
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     prevpage = False
     nextpage = False
@@ -641,7 +585,8 @@ def getSerials(url, page):
 
         out.append(
             {'title': PLchar(title) + '[B][COLOR yellowgreen] [ ' + PLchar(odc) + ' ][/B][/COLOR]', 'href': PLchar(
-                href), 'img': imag + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                href),
+             'img': imag + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
              'plot': plot})
     prevpage = page - 1 if page > 1 else False
     return (out, (prevpage, nextpage))
@@ -649,7 +594,7 @@ def getSerials(url, page):
 
 def getSeasons(url):
     html = getUrl(url)
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     result = parseDOM(html, 'div', attrs={'class': "pt-\d+ pb-\d+"})[0]
     links = parseDOM(result, 'div', attrs={
@@ -664,13 +609,13 @@ def getSeasons(url):
     for title in titles:
         out.append({'title': PLchar(plot1) + ' - ' + PLchar(title), 'href': url + '|' + title, 'img': imag +
                                                                                                       '|User-Agent=' + quote(
-            UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk), 'plot': plot})
+            USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk), 'plot': plot})
     return out
 
 
 def getEpisodes(url, tit):
     html = getUrl(url)
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     result = parseDOM(html, 'div', attrs={'class': "pt-\d+ pb-\d+"})[0]
     plot1 = re.findall('-100">([^<]+)<', result)[0].strip()
@@ -690,7 +635,7 @@ def getEpisodes(url, tit):
                title + '][/B][/COLOR][CR]' + PLchar(plotx)
         out.append({'title': PLchar(title), 'href': playid, 'img': imag + '|User-Agent=' +
                                                                    quote(
-                                                                       UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(
+                                                                       USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(
             kuk), 'plot': plot})
 
     return out
@@ -720,7 +665,7 @@ def getTvStream(exlink):
 
 def getTVm3u(url):
     sess.headers.update({
-        'User-Agent': UA,
+        'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
         'Referer': 'https://hejo.tv/',
@@ -754,7 +699,7 @@ def getTVm3u(url):
         chTbl = []
 
         headers2 = {
-            'User-Agent': UA,
+            'User-Agent': USER_AGENT,
             'Accept': '*/*',
             'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
             'X-Requested-With': 'XMLHttpRequest',
@@ -766,7 +711,7 @@ def getTVm3u(url):
         chTbl = sess.get(api, cookies=sess.cookies,
                          headers=headers2, verify=False).json()
         headers = {
-            'User-Agent': UA,
+            'User-Agent': USER_AGENT,
             'Accept': '*/*',
             'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
             'Referer': url,
@@ -866,8 +811,8 @@ def getVideosOk(url):
     if not 'mp4' in stream:
         stream = getUrl(stream, False)
         stream = stream.headers['Location']
-    kuk = cookieString(COOKIEFILE)
-    return stream + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)
+    kuk = cookieString(COOKIE_FILE)
+    return stream + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)
 
 
 def getSerialLink(playid):
@@ -876,9 +821,9 @@ def getSerialLink(playid):
     stream = ''
     stream = re.findall('src="(.+?)"', html)  # [0]
     if stream:
-        kuk = cookieString(COOKIEFILE)
+        kuk = cookieString(COOKIE_FILE)
         stream = stream[0].replace(
-            '&amp;', '&') + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)
+            '&amp;', '&') + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)
     return stream
 
 
@@ -929,7 +874,7 @@ def getGatunek(exlink):
 
 
 def search(q='batman'):
-    kuk = cookieString(COOKIEFILE)
+    kuk = cookieString(COOKIE_FILE)
     out = []
     html = getUrl('https://hejo.tv/search?q=' + q)
 
@@ -955,7 +900,8 @@ def search(q='batman'):
             title = PLchar(title)
             online = PLchar(online)
             out.append({'title': title + '[B][COLOR yellowgreen] (' + online + ')[/B][/COLOR]', 'href': href,
-                        'img': imag + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                        'img': imag + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(
+                            kuk),
                         'plot': plot})
     if linksf:
         xbmc.log("linksf", level=xbmc.LOGINFO)
@@ -974,7 +920,7 @@ def search(q='batman'):
             href = parseDOM(link, 'a', ret='href')[0]
             out.append({'title': PLchar(title) + '[B][COLOR yellowgreen] (' + PLchar(lang) + ')[/B][/COLOR]',
                         'href': PLchar(href), 'img': 'https://hejo.tv' + PLchar(
-                    imag) + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
+                    imag) + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk),
                         'plot': PLchar(plot), 'genre': PLchar(genres), 'year': year, 'lang': lang})
     if linkss:
         xbmc.log("linkss", level=xbmc.LOGINFO)
@@ -988,7 +934,8 @@ def search(q='batman'):
                 'class': "badge badge-info"})[0]
             out.append(
                 {'title': PLchar(title) + '[B][COLOR yellowgreen] [ ' + PLchar(odc) + ' ][/B][/COLOR]', 'href': PLchar(
-                    href), 'img': imag + '|User-Agent=' + quote(UA) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)})
+                    href),
+                 'img': imag + '|User-Agent=' + quote(USER_AGENT) + '&Referer=' + BASEURL + '&Cookie=' + quote(kuk)})
     return out
 
 
