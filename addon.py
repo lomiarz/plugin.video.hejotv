@@ -122,9 +122,9 @@ def add_item(url, name, image, folder, mode, infoLabels=False, isplay=True, item
 
     list_item.setInfo(type="video", infoLabels=infoLabels)
     list_item.setArt({
-        'thumb': image, 
+        'thumb': image,
         'poster': image,
-        'banner': image, 
+        'banner': image,
         'fanart': image,
     })
     xbmcplugin.addDirectoryItem(
@@ -784,8 +784,7 @@ def getTVm3u(url):
             'TE': 'Trailers',
         }
 
-        chTbl = sess.get(api, cookies=sess.cookies,
-                         headers=headers2, verify=False).json()
+        chTbl = sess.get(api, cookies=sess.cookies, headers=headers2, verify=False).json()
         headers = {
             'User-Agent': UA,
             'Accept': '*/*',
@@ -794,18 +793,12 @@ def getTVm3u(url):
             'X-Requested-With': 'XMLHttpRequest',
             'Connection': 'keep-alive',
             'TE': 'Trailers', }
-        html = sess.get(nxturl, cookies=sess.cookies,
-                        headers=headers, verify=False)  # .content
+        html = sess.get(nxturl, cookies=sess.cookies, headers=headers, verify=False)
         ref = html.url
-        html = html.content
-        if PY3:
-            html = html.decode(encoding='utf-8', errors='strict')
+        html = html.content.decode(encoding='utf-8', errors='strict')
         stream_url = re.findall("hls.loadSource\('(.+?)'\)", html)[0]
 
-        pol = sess.get(stream_url, cookies=sess.cookies,
-                       headers=headers, verify=False).content
-        if PY3:
-            pol = pol.decode(encoding='utf-8', errors='strict')
+        pol = sess.get(stream_url, cookies=sess.cookies, headers=headers, verify=False).content.decode(encoding='utf-8', errors='strict')
         jakoscstream_url = re.findall(
             'RESOLUTION=(.+?)\\r\\n(htt.+?)\\r', pol, re.DOTALL)
         if jakoscstream_url:
