@@ -10,6 +10,7 @@ import xbmcplugin
 import xbmcaddon
 import xbmc
 
+from html.parser import unescape
 from urllib.parse import parse_qsl, quote, urlencode
 import http.cookiejar as cookielib
 
@@ -25,7 +26,7 @@ PLUGIN_PATH = addon.getAddonInfo('path')
 PROFILE_PATH = xbmcvfs.translatePath(addon.getAddonInfo('profile'))
 xbmc.log("Plugin directory = {}".format(PROFILE_PATH), level=xbmc.LOGINFO)
 COOKIE_FILE = os.path.join(PROFILE_PATH, 'hejotv.cookie')
-BASEURL = 'https://hejo.tv'
+HEJO_TV_BASE_URL = 'https://hejo.tv'
 fanart = PLUGIN_PATH + 'fanart.jpg'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0'
 CONFIG_FILE_PATH = os.path.join(PLUGIN_PATH, 'resources', 'data', 'config.json')
@@ -50,7 +51,7 @@ def build_url(query):
     return addon_base_url + '?' + urlencode(query)
 
 
-def add_item(url, name, image, folder, mode, infoLabels=False, isplay=True, itemcount=1, page=1):
+def add_item(url, name, image, folder, mode, infoLabels={}, isplay=True, itemcount=1, page=1):
     list_item = xbmcgui.ListItem(label=name)
 
     if folder:
@@ -91,8 +92,8 @@ def add_item(url, name, image, folder, mode, infoLabels=False, isplay=True, item
 def home():
     login()
     # add_item('https://hejo.tv/filmy-online?sort=date_desc', 'Filmy', '', True, "listmovies")
-    add_item('https://hejo.tv/series/index?sort=date_desc', 'Seriale', '', True, "get_tv_serials")
-    add_item(BASEURL, 'Telewizja', '', True, "get_tv_channels")
+    add_item('https://hejo.tv/series/index?sort=last', 'Seriale', '', True, "get_tv_series")
+    add_item(HEJO_TV_BASE_URL, 'Telewizja', '', True, "get_tv_channels")
     xbmcplugin.setContent(addon_handle, 'videos')
     xbmcplugin.endOfDirectory(addon_handle, True)
 
@@ -121,9 +122,9 @@ def login():
             'Host': 'hejo.tv',
             'User-Agent': USER_AGENT,
         }
-        response = sess.get(BASEURL).content.decode(encoding='utf-8', errors='strict')
+        response = sess.get(HEJO_TV_BASE_URL).content.decode(encoding='utf-8', errors='strict')
         set_session_cookies(response)
-        response = sess.get(BASEURL, headers=headers).content.decode(encoding='utf-8', errors='strict')
+        response = sess.get(HEJO_TV_BASE_URL, headers=headers).content.decode(encoding='utf-8', errors='strict')
 
         dom = HtmlDom().createDom(response)
         xbmc.log("Login response = {}".format(response), level=xbmc.LOGINFO)
@@ -135,12 +136,12 @@ def login():
             'content-type': 'application/x-www-form-urlencoded',
         }
         data = '_token={}&username={}&password={}'.format(token, username, quote(password))
-        response = sess.post('{}/login'.format(BASEURL), data=data, headers=headers).content.decode(
+        response = sess.post('{}/login'.format(HEJO_TV_BASE_URL), data=data, headers=headers).content.decode(
             encoding='utf-8', errors='strict')
         set_session_cookies(response)
 
         html = sess \
-            .get(BASEURL, headers=headers, cookies=sess.cookies) \
+            .get(HEJO_TV_BASE_URL, headers=headers, cookies=sess.cookies) \
             .content \
             .decode(encoding='utf-8', errors='strict')
 
@@ -238,7 +239,7 @@ def get_tv_stream(url):
 def get_tv_m3u(url):
     sess.headers.update({
         'User-Agent': USER_AGENT,
-        'Referer': BASEURL,
+        'Referer': HEJO_TV_BASE_URL,
     })
     try:
         html = get_url(url)
@@ -249,7 +250,7 @@ def get_tv_m3u(url):
         api = re.findall('.get\("([^"]+)",function\(c\)', unpack)[0]
         iframe_url = re.findall("<iframe.*src=\"([^\"]+)\".*</iframe>", html)[0]
         xbmc.log("Next url = {}".format(iframe_url), level=xbmc.LOGINFO)
-        api = BASEURL + api if api.startswith('/') else api
+        api = HEJO_TV_BASE_URL + api if api.startswith('/') else api
         xbmc.log("Api url = {}".format(api), level=xbmc.LOGINFO)
 
         headers = {
@@ -281,6 +282,48 @@ def get_tv_m3u(url):
     return ''
 
 
+def get_tv_series(url):
+    sess.headers.update({
+        'User-Agent': USER_AGENT,
+        'Referer': HEJO_TV_BASE_URL,
+    })
+
+    html = get_url(url)
+    xbmc.log("get_tv_series \n{}".format(html), level=xbmc.LOGINFO)
+    dom = HtmlDom().createDom(html)
+
+    series_list = dom.find('div.ml-item')
+    xbmc.log("get_tv_series, found {} series".format(series_list.len), level=xbmc.LOGINFO)
+
+    for series in series_list:
+        xbmc.log("{}\n\n\n\n".format(series.html()), level=xbmc.LOGINFO)
+        series_url = series.find('a.ml-mask').attr('href')
+        series_title = unescape(series.find('a.ml-mask').attr('title'))
+        series_poster = "{}{}".format(HEJO_TV_BASE_URL, series.find('img.thumb').first().attr('src'))
+        series_description = unescape(series.find('div#hidden_tip').first().text().strip())
+
+        series_info = {
+            'plot': series_description,
+            'title': series_title,
+        }
+
+        xbmc.log("{}, {}, {}".format(series_url, series_poster, series_description), level=xbmc.LOGINFO)
+
+        add_item(
+            name=series_title,
+            url=series_url,
+            mode='get_tv_stream',
+            image=series_poster,
+            folder=False,
+            isplay=False,
+            infoLabels=series_info,
+            itemcount=series_list.len
+        )
+
+    xbmcplugin.setContent(addon_handle, 'videos')
+    xbmcplugin.endOfDirectory(addon_handle, True)
+
+
 def router():
     mode = params.get('mode', 'home')
     url = params.get('url', None)
@@ -290,6 +333,8 @@ def router():
         get_tv_channels(url)
     if mode == 'get_tv_stream':
         get_tv_stream(url)
+    if mode == 'get_tv_series':
+        get_tv_series(url)
     if mode == 'settings':
         addon.openSettings()
         xbmc.executebuiltin('Container.Refresh()')
